@@ -1,26 +1,91 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { apiUrl } from '../utils/api';
+
+const currency = new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'USD'
+});
 
 function ItemDetail() {
   const { id } = useParams();
   const [item, setItem] = useState(null);
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch('/api/items/' + id)
-      .then(res => res.ok ? res.json() : Promise.reject(res))
-      .then(setItem)
-      .catch(() => navigate('/'));
-  }, [id, navigate]);
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setItem(null);
 
-  if (!item) return <p>Loading...</p>;
+    fetch(apiUrl('/api/items/' + id), { signal: controller.signal })
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(res.status === 404 ? 'Item not found' : `Request failed (${res.status})`);
+        }
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const preview = (await res.text()).slice(0, 120);
+          throw new Error(`Expected JSON but got "${contentType}". Response starts with: ${preview}`);
+        }
+        return res.json();
+      })
+      .then(json => {
+        if (controller.signal.aborted) return;
+        setItem(json);
+      })
+      .catch(err => {
+        if (err?.name === 'AbortError') return;
+        console.error(err);
+        setError(err);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [id]);
 
   return (
-    <div style={{padding: 16}}>
-      <h2>{item.name}</h2>
-      <p><strong>Category:</strong> {item.category}</p>
-      <p><strong>Price:</strong> ${item.price}</p>
-    </div>
+    <main className="page">
+      <div className="pageTitleRow">
+        <Link className="backLink" to="/">
+          ← Back
+        </Link>
+        <span className="pill">Item #{id}</span>
+      </div>
+
+      <section className="card">
+        <div className="detailGrid">
+          {error ? (
+            <div role="alert" className="alert" style={{ marginTop: 0 }}>
+              <strong>Couldn’t load this item.</strong> {error.message}
+            </div>
+          ) : loading ? (
+            <>
+              <div className="skeleton" style={{ height: 30, width: '68%', borderRadius: 12 }} />
+              <div className="detailMeta">
+                <div className="muted">Category</div>
+                <div className="skeleton skeletonLine" style={{ width: '40%' }} />
+                <div className="muted">Price</div>
+                <div className="skeleton skeletonLine" style={{ width: '25%' }} />
+              </div>
+            </>
+          ) : item ? (
+            <>
+              <h2 className="detailTitle">{item.name}</h2>
+              <div className="detailMeta">
+                <div className="muted">Category</div>
+                <div>{item.category}</div>
+                <div className="muted">Price</div>
+                <div>{currency.format(item.price)}</div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </section>
+    </main>
   );
 }
 

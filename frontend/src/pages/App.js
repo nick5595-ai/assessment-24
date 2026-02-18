@@ -7,13 +7,22 @@ import { DataProvider } from '../state/DataContext';
 function App() {
   return (
     <DataProvider>
-      <nav style={{padding: 16, borderBottom: '1px solid #ddd'}}>
-        <Link to="/">Items</Link>
-      </nav>
-      <Routes>
-        <Route path="/" element={<Items />} />
-        <Route path="/items/:id" element={<ItemDetail />} />
-      </Routes>
+      <div className="appShell">
+        <header className="navbar">
+          <div className="navbarInner">
+            <Link className="brand" to="/">
+              Item Explorer
+            </Link>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Search, paginate, and browse details
+            </span>
+          </div>
+        </header>
+        <Routes>
+          <Route path="/" element={<Items />} />
+          <Route path="/items/:id" element={<ItemDetail />} />
+        </Routes>
+      </div>
     </DataProvider>
   );
 }
